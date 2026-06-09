@@ -1,38 +1,44 @@
-import { StrictMode, useMemo, useState } from "react";
+import { StrictMode, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { createClient, type Session, type SupabaseClient, type User } from "@supabase/supabase-js";
 import {
   Box,
   BriefcaseBusiness,
-  File,
+  ChevronLeft,
+  Download,
+  File as FileIcon,
   Folder,
   FolderPlus,
   Grid3X3,
   HardDrive,
   List,
+  Loader2,
   LogOut,
   Package,
   Search,
   ShoppingBag,
+  Trash2,
   Upload,
 } from "lucide-react";
 import "./styles.css";
 
 type Page = "drive" | "products" | "services";
 type ViewMode = "grid" | "list";
+type AuthMode = "login" | "signup";
 type DriveItem = {
-  id: number;
+  id: string;
   name: string;
   type: "folder" | "file";
   meta: string;
+  path: string;
 };
 
-const initialItems: DriveItem[] = [
-  { id: 1, name: "Customer Artwork", type: "folder", meta: "12 files" },
-  { id: 2, name: "Invoices", type: "folder", meta: "8 files" },
-  { id: 3, name: "Catalog Draft.pdf", type: "file", meta: "2.4 MB" },
-  { id: 4, name: "Product Photos.zip", type: "file", meta: "18.8 MB" },
-  { id: 5, name: "Service Notes.docx", type: "file", meta: "432 KB" },
-];
+const BUCKET_NAME = "user-files";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY) as string | undefined;
+const supabase =
+  supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 const products = [
   { name: "Printed Booklet", price: "$18", detail: "Stapled, full color, ready for pickup." },
@@ -47,11 +53,38 @@ const services = [
 ];
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [page, setPage] = useState<Page>("drive");
 
-  if (!isLoggedIn) {
-    return <LoginScreen onLogin={() => setIsLoggedIn(true)} />;
+  useEffect(() => {
+    if (!supabase) {
+      setIsCheckingSession(false);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setIsCheckingSession(false);
+    });
+
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  if (!supabase) {
+    return <SetupScreen />;
+  }
+
+  if (isCheckingSession) {
+    return <LoadingScreen />;
+  }
+
+  if (!session) {
+    return <LoginScreen supabase={supabase} />;
   }
 
   return (
@@ -61,7 +94,7 @@ function App() {
           <div className="brand-mark">A</div>
           <div>
             <p>Abisel</p>
-            <span>Workspace</span>
+            <span>{session.user.email}</span>
           </div>
         </div>
 
@@ -80,14 +113,14 @@ function App() {
           </button>
         </nav>
 
-        <button className="logout" onClick={() => setIsLoggedIn(false)}>
+        <button className="logout" onClick={() => void supabase.auth.signOut()}>
           <LogOut size={18} />
           Log out
         </button>
       </aside>
 
       <main className="content">
-        {page === "drive" && <DrivePage />}
+        {page === "drive" && <DrivePage supabase={supabase} user={session.user} />}
         {page === "products" && <ProductsPage />}
         {page === "services" && <ServicesPage />}
       </main>
@@ -95,7 +128,63 @@ function App() {
   );
 }
 
-function LoginScreen({ onLogin }: { onLogin: () => void }) {
+function SetupScreen() {
+  return (
+    <main className="login-screen">
+      <section className="login-panel">
+        <div className="brand brand-large">
+          <div className="brand-mark">A</div>
+          <div>
+            <p>Abisel</p>
+            <span>Backend setup needed</span>
+          </div>
+        </div>
+        <div className="notice">
+          Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to your environment, then run the SQL in
+          `supabase-storage-setup.sql`.
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <main className="login-screen">
+      <section className="login-panel compact-panel">
+        <Loader2 className="spin" size={28} />
+        <p>Loading Abisel...</p>
+      </section>
+    </main>
+  );
+}
+
+function LoginScreen({ supabase }: { supabase: SupabaseClient }) {
+  const [mode, setMode] = useState<AuthMode>("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setMessage("");
+
+    const result =
+      mode === "login"
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({ email, password });
+
+    if (result.error) {
+      setMessage(result.error.message);
+    } else if (mode === "signup" && !result.data.session) {
+      setMessage("Account created. Check your email to confirm your login.");
+    }
+
+    setIsSubmitting(false);
+  }
+
   return (
     <main className="login-screen">
       <section className="login-panel">
@@ -106,22 +195,33 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
             <span>Files, products, and services in one place</span>
           </div>
         </div>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            onLogin();
-          }}
-        >
+        <div className="auth-tabs">
+          <button className={mode === "login" ? "selected" : ""} onClick={() => setMode("login")} type="button">
+            Log in
+          </button>
+          <button className={mode === "signup" ? "selected" : ""} onClick={() => setMode("signup")} type="button">
+            Sign up
+          </button>
+        </div>
+        <form onSubmit={submitAuth}>
           <label>
             Email
-            <input type="email" placeholder="you@example.com" required />
+            <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required />
           </label>
           <label>
             Password
-            <input type="password" placeholder="Password" required />
+            <input
+              value={password}
+              minLength={6}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              required
+            />
           </label>
-          <button className="primary-action" type="submit">
-            Log in
+          {message && <div className="notice">{message}</div>}
+          <button className="primary-action" disabled={isSubmitting} type="submit">
+            {isSubmitting ? <Loader2 className="spin" size={18} /> : null}
+            {mode === "login" ? "Log in" : "Create account"}
           </button>
         </form>
       </section>
@@ -129,19 +229,144 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-function DrivePage() {
-  const [items, setItems] = useState(initialItems);
+function DrivePage({ supabase, user }: { supabase: SupabaseClient; user: User }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [items, setItems] = useState<DriveItem[]>([]);
+  const [currentPath, setCurrentPath] = useState("");
   const [view, setView] = useState<ViewMode>("grid");
   const [query, setQuery] = useState("");
+  const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isWorking, setIsWorking] = useState(false);
+
+  const storagePrefix = `${user.id}/${currentPath}`;
 
   const filteredItems = useMemo(
     () => items.filter((item) => item.name.toLowerCase().includes(query.toLowerCase())),
     [items, query],
   );
 
-  function createFolder() {
-    const folderNumber = items.filter((item) => item.type === "folder").length + 1;
-    setItems([{ id: Date.now(), name: `New Folder ${folderNumber}`, type: "folder", meta: "0 files" }, ...items]);
+  useEffect(() => {
+    void loadItems();
+  }, [currentPath]);
+
+  async function loadItems() {
+    setIsLoading(true);
+    setMessage("");
+
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).list(storagePrefix, {
+      limit: 100,
+      sortBy: { column: "name", order: "asc" },
+    });
+
+    if (error) {
+      setMessage(error.message);
+      setItems([]);
+    } else {
+      setItems(
+        data
+          .filter((entry) => entry.name !== ".keep")
+          .map((entry) => ({
+            id: `${storagePrefix}/${entry.name}`,
+            name: entry.name,
+            type: entry.id ? "file" : "folder",
+            meta: entry.id ? formatBytes(entry.metadata?.size ?? 0) : "Folder",
+            path: `${currentPath}${entry.name}`,
+          })),
+      );
+    }
+
+    setIsLoading(false);
+  }
+
+  async function createFolder() {
+    const folderName = window.prompt("Folder name");
+    const cleanedName = folderName?.trim().replace(/\//g, "-");
+
+    if (!cleanedName) return;
+
+    setIsWorking(true);
+    setMessage("");
+
+    const keepFile = new File([""], ".keep", { type: "text/plain" });
+    const { error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(`${storagePrefix}${cleanedName}/.keep`, keepFile, { upsert: true });
+
+    if (error) {
+      setMessage(error.message);
+    } else {
+      await loadItems();
+    }
+
+    setIsWorking(false);
+  }
+
+  async function uploadFiles(files: FileList | null) {
+    if (!files?.length) return;
+
+    setIsWorking(true);
+    setMessage("");
+
+    for (const file of Array.from(files)) {
+      const { error } = await supabase.storage.from(BUCKET_NAME).upload(`${storagePrefix}${file.name}`, file, {
+        upsert: true,
+      });
+
+      if (error) {
+        setMessage(error.message);
+        break;
+      }
+    }
+
+    await loadItems();
+    setIsWorking(false);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  async function downloadItem(item: DriveItem) {
+    if (item.type === "folder") {
+      setCurrentPath(`${item.path}/`);
+      return;
+    }
+
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .createSignedUrl(`${storagePrefix}${item.name}`, 60);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  }
+
+  async function deleteItem(item: DriveItem) {
+    if (!window.confirm(`Delete ${item.name}?`)) return;
+
+    setIsWorking(true);
+    setMessage("");
+
+    const removePath = item.type === "folder" ? `${storagePrefix}${item.name}/.keep` : `${storagePrefix}${item.name}`;
+    const { error } = await supabase.storage.from(BUCKET_NAME).remove([removePath]);
+
+    if (error) {
+      setMessage(error.message);
+    } else {
+      await loadItems();
+    }
+
+    setIsWorking(false);
+  }
+
+  function goBack() {
+    const parts = currentPath.split("/").filter(Boolean);
+    parts.pop();
+    setCurrentPath(parts.length ? `${parts.join("/")}/` : "");
   }
 
   return (
@@ -149,17 +374,30 @@ function DrivePage() {
       <header className="page-header">
         <div>
           <p className="eyebrow">My Drive</p>
-          <h1>Your files</h1>
+          <h1>{currentPath || "Your files"}</h1>
         </div>
         <div className="toolbar">
-          <button className="secondary-action" type="button" onClick={createFolder}>
+          {currentPath && (
+            <button className="secondary-action" type="button" onClick={goBack}>
+              <ChevronLeft size={18} />
+              Back
+            </button>
+          )}
+          <button className="secondary-action" disabled={isWorking} type="button" onClick={createFolder}>
             <FolderPlus size={18} />
             New folder
           </button>
-          <button className="primary-action" type="button">
+          <button className="primary-action" disabled={isWorking} type="button" onClick={() => fileInputRef.current?.click()}>
             <Upload size={18} />
             Upload
           </button>
+          <input
+            ref={fileInputRef}
+            className="hidden-input"
+            multiple
+            onChange={(event) => void uploadFiles(event.target.files)}
+            type="file"
+          />
         </div>
       </header>
 
@@ -178,19 +416,38 @@ function DrivePage() {
         </div>
       </div>
 
-      <div className={view === "grid" ? "file-grid" : "file-list"}>
-        {filteredItems.map((item) => (
-          <article className="file-card" key={item.id}>
-            <div className={item.type === "folder" ? "file-icon folder" : "file-icon"}>
-              {item.type === "folder" ? <Folder size={24} /> : <File size={24} />}
-            </div>
-            <div>
-              <h2>{item.name}</h2>
-              <p>{item.meta}</p>
-            </div>
-          </article>
-        ))}
-      </div>
+      {message && <div className="notice page-notice">{message}</div>}
+
+      {isLoading ? (
+        <div className="empty-state">
+          <Loader2 className="spin" size={30} />
+          Loading files...
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="empty-state">No files here yet.</div>
+      ) : (
+        <div className={view === "grid" ? "file-grid" : "file-list"}>
+          {filteredItems.map((item) => (
+            <article className="file-card" key={item.id} onDoubleClick={() => void downloadItem(item)}>
+              <div className={item.type === "folder" ? "file-icon folder" : "file-icon"}>
+                {item.type === "folder" ? <Folder size={24} /> : <FileIcon size={24} />}
+              </div>
+              <div className="file-info">
+                <h2>{item.name}</h2>
+                <p>{item.meta}</p>
+              </div>
+              <div className="file-actions">
+                <button onClick={() => void downloadItem(item)} aria-label={item.type === "folder" ? "Open folder" : "Download file"}>
+                  {item.type === "folder" ? <Folder size={17} /> : <Download size={17} />}
+                </button>
+                <button onClick={() => void deleteItem(item)} aria-label="Delete">
+                  <Trash2 size={17} />
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -250,6 +507,16 @@ function ServicesPage() {
       </div>
     </section>
   );
+}
+
+function formatBytes(bytes: number) {
+  if (!bytes) return "0 B";
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** index;
+
+  return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
 createRoot(document.getElementById("root")!).render(
