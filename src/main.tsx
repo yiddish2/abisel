@@ -28,6 +28,7 @@ type AuthMode = "login" | "signup";
 type DriveItem = {
   id: string;
   name: string;
+  storageName: string;
   type: "folder" | "file";
   meta: string;
   path: string;
@@ -267,7 +268,8 @@ function DrivePage({ supabase, user }: { supabase: SupabaseClient; user: User })
           .filter((entry) => entry.name !== ".keep")
           .map((entry) => ({
             id: `${storagePrefix}/${entry.name}`,
-            name: entry.name,
+            name: getDisplayName(entry.name, entry.metadata),
+            storageName: entry.name,
             type: entry.id ? "file" : "folder",
             meta: entry.id ? formatBytes(entry.metadata?.size ?? 0) : "Folder",
             path: `${currentPath}${entry.name}`,
@@ -311,7 +313,10 @@ function DrivePage({ supabase, user }: { supabase: SupabaseClient; user: User })
     let failedUpload = false;
 
     for (const file of Array.from(files)) {
-      const { error } = await supabase.storage.from(BUCKET_NAME).upload(`${storagePrefix}${file.name}`, file, {
+      const storageName = createStorageFileName(file.name);
+      const { error } = await supabase.storage.from(BUCKET_NAME).upload(`${storagePrefix}${storageName}`, file, {
+        contentType: file.type || undefined,
+        metadata: { originalName: file.name },
         upsert: true,
       });
 
@@ -350,7 +355,9 @@ function DrivePage({ supabase, user }: { supabase: SupabaseClient; user: User })
 
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
-      .createSignedUrl(`${storagePrefix}${item.name}`, 60);
+      .createSignedUrl(`${storagePrefix}${item.storageName}`, 60, {
+        download: item.name,
+      });
 
     if (error) {
       setMessage(error.message);
@@ -366,7 +373,8 @@ function DrivePage({ supabase, user }: { supabase: SupabaseClient; user: User })
     setIsWorking(true);
     setMessage("");
 
-    const removePath = item.type === "folder" ? `${storagePrefix}${item.name}/.keep` : `${storagePrefix}${item.name}`;
+    const removePath =
+      item.type === "folder" ? `${storagePrefix}${item.storageName}/.keep` : `${storagePrefix}${item.storageName}`;
     const { error } = await supabase.storage.from(BUCKET_NAME).remove([removePath]);
 
     if (error) {
@@ -532,6 +540,34 @@ function formatBytes(bytes: number) {
   const value = bytes / 1024 ** index;
 
   return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function createStorageFileName(fileName: string) {
+  const extensionMatch = fileName.match(/(\.[a-zA-Z0-9]{1,12})$/);
+  const extension = extensionMatch?.[1] ?? "";
+  const baseName = extension ? fileName.slice(0, -extension.length) : fileName;
+  const safeBaseName = baseName
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  const finalBaseName = safeBaseName || "file";
+
+  return `${Date.now()}-${finalBaseName}${extension.toLowerCase()}`;
+}
+
+function getDisplayName(storageName: string, metadata: unknown) {
+  if (
+    metadata &&
+    typeof metadata === "object" &&
+    "originalName" in metadata &&
+    typeof metadata.originalName === "string"
+  ) {
+    return metadata.originalName;
+  }
+
+  return storageName.replace(/^\d+-/, "");
 }
 
 createRoot(document.getElementById("root")!).render(
