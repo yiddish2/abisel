@@ -252,7 +252,6 @@ function DrivePage({ supabase, user }: { supabase: SupabaseClient; user: User })
 
   async function loadItems() {
     setIsLoading(true);
-    setMessage("");
 
     const { data, error } = await supabase.storage.from(BUCKET_NAME).list(storagePrefix, {
       limit: 100,
@@ -297,6 +296,7 @@ function DrivePage({ supabase, user }: { supabase: SupabaseClient; user: User })
       setMessage(error.message);
     } else {
       await loadItems();
+      setMessage(`Created folder "${cleanedName}".`);
     }
 
     setIsWorking(false);
@@ -307,6 +307,8 @@ function DrivePage({ supabase, user }: { supabase: SupabaseClient; user: User })
 
     setIsWorking(true);
     setMessage("");
+    let uploadedCount = 0;
+    let failedUpload = false;
 
     for (const file of Array.from(files)) {
       const { error } = await supabase.storage.from(BUCKET_NAME).upload(`${storagePrefix}${file.name}`, file, {
@@ -314,12 +316,25 @@ function DrivePage({ supabase, user }: { supabase: SupabaseClient; user: User })
       });
 
       if (error) {
-        setMessage(error.message);
+        failedUpload = true;
+        setMessage(`Upload failed for "${file.name}": ${error.message}`);
+        setIsWorking(false);
+
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+
         break;
       }
+
+      uploadedCount += 1;
     }
 
     await loadItems();
+    if (!failedUpload && uploadedCount > 0) {
+      setMessage(uploadedCount === 1 ? "Uploaded 1 file." : `Uploaded ${uploadedCount} files.`);
+    }
+
     setIsWorking(false);
 
     if (fileInputRef.current) {
