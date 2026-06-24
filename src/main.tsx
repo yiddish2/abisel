@@ -545,16 +545,9 @@ function formatBytes(bytes: number) {
 function createStorageFileName(fileName: string) {
   const extensionMatch = fileName.match(/(\.[a-zA-Z0-9]{1,12})$/);
   const extension = extensionMatch?.[1] ?? "";
-  const baseName = extension ? fileName.slice(0, -extension.length) : fileName;
-  const safeBaseName = baseName
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-  const finalBaseName = safeBaseName || "file";
+  const encodedName = encodeFileName(fileName);
 
-  return `${Date.now()}-${finalBaseName}${extension.toLowerCase()}`;
+  return `${Date.now()}--name-${encodedName}${extension.toLowerCase()}`;
 }
 
 function getDisplayName(storageName: string, metadata: unknown) {
@@ -567,7 +560,37 @@ function getDisplayName(storageName: string, metadata: unknown) {
     return metadata.originalName;
   }
 
+  const encodedName = storageName.match(/--name-([a-zA-Z0-9_-]+)(?:\.[a-zA-Z0-9]{1,12})?$/)?.[1];
+
+  if (encodedName) {
+    return decodeFileName(encodedName) ?? storageName;
+  }
+
   return storageName.replace(/^\d+-/, "");
+}
+
+function encodeFileName(fileName: string) {
+  const bytes = new TextEncoder().encode(fileName);
+  let binary = "";
+
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+
+  return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function decodeFileName(encodedName: string) {
+  try {
+    const base64 = encodedName.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedBase64 = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const binary = window.atob(paddedBase64);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return null;
+  }
 }
 
 createRoot(document.getElementById("root")!).render(
