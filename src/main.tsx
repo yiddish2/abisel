@@ -14,7 +14,9 @@ import {
   List,
   Loader2,
   LogOut,
+  Music,
   Package,
+  PlayCircle,
   Search,
   ShoppingBag,
   Trash2,
@@ -22,7 +24,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 
-type Page = "drive" | "products" | "services";
+type Page = "drive" | "products" | "services" | "music";
 type ViewMode = "grid" | "list";
 type AuthMode = "login" | "signup";
 type DriveItem = {
@@ -51,6 +53,12 @@ const services = [
   { name: "Document Setup", detail: "Prepare files for print, upload, or sharing." },
   { name: "Product Listing Help", detail: "Turn raw product info into clean listings." },
   { name: "File Organization", detail: "Sort, name, and structure your digital files." },
+];
+
+const sickMusicItems = [
+  { name: "Upload Tracks", detail: "Keep Hebrew, Yiddish, and event music files organized in your drive." },
+  { name: "Playlist Prep", detail: "Build clean sets for simchas, stores, waiting rooms, and special projects." },
+  { name: "Music Requests", detail: "Send in notes for edits, sorting, naming, or custom music work." },
 ];
 
 function App() {
@@ -112,6 +120,10 @@ function App() {
             <BriefcaseBusiness size={18} />
             Services
           </button>
+          <button className={page === "music" ? "active" : ""} onClick={() => setPage("music")}>
+            <Music size={18} />
+            Sick Music
+          </button>
         </nav>
 
         <button className="logout" onClick={() => void supabase.auth.signOut()}>
@@ -124,6 +136,7 @@ function App() {
         {page === "drive" && <DrivePage supabase={supabase} user={session.user} />}
         {page === "products" && <ProductsPage />}
         {page === "services" && <ServicesPage />}
+        {page === "music" && <SickMusicPage />}
       </main>
     </div>
   );
@@ -524,6 +537,33 @@ function ServicesPage() {
             <p>{service.detail}</p>
             <button className="primary-action full-width" type="button">
               Request service
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SickMusicPage() {
+  return (
+    <section className="page">
+      <header className="page-header">
+        <div>
+          <p className="eyebrow">Sick Music</p>
+          <h1>Music workspace</h1>
+        </div>
+      </header>
+      <div className="catalog-grid">
+        {sickMusicItems.map((item) => (
+          <article className="catalog-card" key={item.name}>
+            <div className="catalog-icon music-icon">
+              <PlayCircle size={24} />
+            </div>
+            <h2>{item.name}</h2>
+            <p>{item.detail}</p>
+            <button className="primary-action full-width" type="button">
+              Open music
             </button>
           </article>
         ))}

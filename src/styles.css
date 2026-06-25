@@ -455,6 +455,11 @@ h2 {
   color: #c26811;
 }
 
+.music-icon {
+  background: #f0ecff;
+  color: #6751b8;
+}
+
 .catalog-grid {
   display: grid;
   gap: 16px;
@@ -507,16 +512,16 @@ h2 {
   }
 
   .nav {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .nav button {
     justify-content: center;
-    padding: 0 8px;
+    padding: 0 6px;
   }
 
   .nav button {
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .logout {
