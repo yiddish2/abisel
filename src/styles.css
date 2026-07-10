@@ -22,7 +22,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -420,6 +422,14 @@ h1 {
   z-index: 30;
 }
 
+.order-form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
 .cart-header {
   align-items: center;
   display: flex;
@@ -441,7 +451,6 @@ h1 {
   border-radius: 8px;
   color: #786a62;
   display: flex;
-  flex: 1;
   font-weight: 900;
   justify-content: center;
   min-height: 220px;
@@ -450,6 +459,7 @@ h1 {
 .cart-items {
   display: grid;
   gap: 14px;
+  max-height: 32vh;
   overflow: auto;
   padding-right: 4px;
 }
@@ -494,6 +504,67 @@ h1 {
   font-weight: 900;
   min-width: 22px;
   text-align: center;
+}
+
+.customer-fields {
+  display: grid;
+  gap: 12px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.customer-fields label {
+  color: #5b4b43;
+  display: grid;
+  font-size: 13px;
+  font-weight: 900;
+  gap: 7px;
+}
+
+.customer-fields input,
+.customer-fields select,
+.customer-fields textarea {
+  background: white;
+  border: 1px solid #e1d7ce;
+  border-radius: 8px;
+  color: #241c18;
+  min-height: 42px;
+  outline: 0;
+  padding: 0 11px;
+}
+
+.customer-fields textarea {
+  min-height: 78px;
+  padding: 10px 11px;
+  resize: vertical;
+}
+
+.customer-fields input:focus,
+.customer-fields select:focus,
+.customer-fields textarea:focus {
+  border-color: #7b1e2b;
+  box-shadow: 0 0 0 3px rgba(123, 30, 43, 0.12);
+}
+
+.checkbox-row {
+  align-items: center;
+  display: flex !important;
+  gap: 10px !important;
+}
+
+.checkbox-row input {
+  min-height: 18px;
+  width: 18px;
+}
+
+.status-message {
+  background: #fff7e8;
+  border: 1px solid #ead3a5;
+  border-radius: 8px;
+  color: #6d4c0e;
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 10px;
 }
 
 .cart-footer {

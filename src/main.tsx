@@ -1,5 +1,6 @@
 import { StrictMode, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { createClient } from "@supabase/supabase-js";
 import {
   CheckCircle2,
   Gift,
@@ -28,6 +29,13 @@ type Product = {
   image: string;
 };
 type CartItem = Product & { quantity: number };
+type FulfillmentMethod = "pickup" | "delivery";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabasePublishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY) as string | undefined;
+const supabase =
+  supabaseUrl && supabasePublishableKey ? createClient(supabaseUrl, supabasePublishableKey) : null;
 
 const products: Product[] = [
   {
@@ -131,6 +139,11 @@ function App() {
     setCart((currentCart) =>
       currentCart.map((item) => (item.id === productId ? { ...item, quantity } : item)),
     );
+  }
+
+  function completeOrder() {
+    setCart([]);
+    setIsCartOpen(false);
   }
 
   if (!isAgeConfirmed) {
@@ -250,6 +263,7 @@ function App() {
           cart={cart}
           cartTotal={cartTotal}
           onClose={() => setIsCartOpen(false)}
+          onOrderSubmitted={completeOrder}
           onUpdateQuantity={updateQuantity}
         />
       )}
@@ -280,13 +294,80 @@ function CartPanel({
   cart,
   cartTotal,
   onClose,
+  onOrderSubmitted,
   onUpdateQuantity,
 }: {
   cart: CartItem[];
   cartTotal: number;
   onClose: () => void;
+  onOrderSubmitted: () => void;
   onUpdateQuantity: (productId: number, quantity: number) => void;
 }) {
+  const [customerName, setCustomerName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<FulfillmentMethod>("pickup");
+  const [address, setAddress] = useState("");
+  const [notes, setNotes] = useState("");
+  const [isAgeConfirmed, setIsAgeConfirmed] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function submitOrder(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!supabase) {
+      setStatusMessage("Order backend is not configured yet.");
+      return;
+    }
+
+    if (cart.length === 0) {
+      setStatusMessage("Add at least one item before sending an order request.");
+      return;
+    }
+
+    if (!isAgeConfirmed) {
+      setStatusMessage("Please confirm you are 21 or older before requesting wine products.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage("");
+
+    const { data, error } = await supabase
+      .from("abisel_order_requests")
+      .insert({
+        customer_name: customerName,
+        email,
+        phone,
+        fulfillment_method: fulfillmentMethod,
+        address: fulfillmentMethod === "delivery" ? address : "",
+        notes,
+        age_confirmed: isAgeConfirmed,
+        items: cart.map((item) => ({
+          id: item.id,
+          name: item.name,
+          category: item.category,
+          price: item.price,
+          quantity: item.quantity,
+          lineTotal: item.price * item.quantity,
+        })),
+        total_amount: cartTotal,
+      })
+      .select("id")
+      .single();
+
+    setIsSubmitting(false);
+
+    if (error) {
+      setStatusMessage(error.message);
+      return;
+    }
+
+    setStatusMessage(`Order request sent. Reference: ${String(data.id).slice(0, 8)}`);
+    window.setTimeout(onOrderSubmitted, 1400);
+  }
+
   return (
     <aside className="cart-panel" aria-label="Shopping cart">
       <div className="cart-header">
@@ -299,43 +380,91 @@ function CartPanel({
         </button>
       </div>
 
-      {cart.length === 0 ? (
-        <div className="empty-cart">Your cart is empty.</div>
-      ) : (
-        <div className="cart-items">
-          {cart.map((item) => (
-            <article className="cart-item" key={item.id}>
-              <img src={item.image} alt="" />
-              <div>
-                <h3>{item.name}</h3>
-                <p>${item.price}</p>
-                <div className="quantity">
-                  <button type="button" onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} aria-label="Decrease">
-                    <Minus size={16} />
-                  </button>
-                  <span>{item.quantity}</span>
-                  <button type="button" onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} aria-label="Increase">
-                    <Plus size={16} />
-                  </button>
-                  <button type="button" onClick={() => onUpdateQuantity(item.id, 0)} aria-label="Remove">
-                    <Trash2 size={16} />
-                  </button>
+      <form className="order-form" onSubmit={submitOrder}>
+        {cart.length === 0 ? (
+          <div className="empty-cart">Your cart is empty.</div>
+        ) : (
+          <div className="cart-items">
+            {cart.map((item) => (
+              <article className="cart-item" key={item.id}>
+                <img src={item.image} alt="" />
+                <div>
+                  <h3>{item.name}</h3>
+                  <p>${item.price}</p>
+                  <div className="quantity">
+                    <button type="button" onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} aria-label="Decrease">
+                      <Minus size={16} />
+                    </button>
+                    <span>{item.quantity}</span>
+                    <button type="button" onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} aria-label="Increase">
+                      <Plus size={16} />
+                    </button>
+                    <button type="button" onClick={() => onUpdateQuantity(item.id, 0)} aria-label="Remove">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
+              </article>
+            ))}
+          </div>
+        )}
 
-      <div className="cart-footer">
-        <div>
-          <span>Estimated total</span>
-          <strong>${cartTotal}</strong>
+        <div className="customer-fields">
+          <label>
+            Name
+            <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} required />
+          </label>
+          <label>
+            Phone
+            <input value={phone} onChange={(event) => setPhone(event.target.value)} required />
+          </label>
+          <label>
+            Email
+            <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required />
+          </label>
+          <label>
+            Pickup or delivery
+            <select
+              value={fulfillmentMethod}
+              onChange={(event) => setFulfillmentMethod(event.target.value as FulfillmentMethod)}
+            >
+              <option value="pickup">Pickup</option>
+              <option value="delivery">Delivery</option>
+            </select>
+          </label>
+          {fulfillmentMethod === "delivery" && (
+            <label>
+              Delivery address
+              <input value={address} onChange={(event) => setAddress(event.target.value)} required />
+            </label>
+          )}
+          <label>
+            Notes
+            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
+          </label>
+          <label className="checkbox-row">
+            <input
+              checked={isAgeConfirmed}
+              onChange={(event) => setIsAgeConfirmed(event.target.checked)}
+              type="checkbox"
+              required
+            />
+            I confirm I am 21 or older.
+          </label>
         </div>
-        <button className="primary-action full-width" type="button" disabled={cart.length === 0}>
-          Send order request
-        </button>
-      </div>
+
+        {statusMessage && <div className="status-message">{statusMessage}</div>}
+
+        <div className="cart-footer">
+          <div>
+            <span>Estimated total</span>
+            <strong>${cartTotal}</strong>
+          </div>
+          <button className="primary-action full-width" type="submit" disabled={cart.length === 0 || isSubmitting}>
+            {isSubmitting ? "Sending..." : "Send order request"}
+          </button>
+        </div>
+      </form>
     </aside>
   );
 }
