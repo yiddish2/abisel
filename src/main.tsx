@@ -1,9 +1,10 @@
-import { StrictMode, useMemo, useState } from "react";
+import { StrictMode, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type Session } from "@supabase/supabase-js";
 import {
   CheckCircle2,
   Gift,
+  LogOut,
   Minus,
   Plus,
   Search,
@@ -19,10 +20,11 @@ import {
 import "./styles.css";
 
 type Category = "all" | "wine" | "gifts";
+type ProductCategory = Exclude<Category, "all">;
 type Product = {
-  id: number;
+  id: string;
   name: string;
-  category: Exclude<Category, "all">;
+  category: ProductCategory;
   price: number;
   detail: string;
   badge: string;
@@ -30,6 +32,19 @@ type Product = {
 };
 type CartItem = Product & { quantity: number };
 type FulfillmentMethod = "pickup" | "delivery";
+type OrderRequest = {
+  id: string;
+  created_at: string;
+  customer_name: string;
+  email: string;
+  phone: string;
+  fulfillment_method: FulfillmentMethod;
+  address: string;
+  notes: string;
+  items: Array<{ name: string; quantity: number; price: number; lineTotal: number }>;
+  total_amount: number;
+  status: string;
+};
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabasePublishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
@@ -37,9 +52,9 @@ const supabasePublishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
 const supabase =
   supabaseUrl && supabasePublishableKey ? createClient(supabaseUrl, supabasePublishableKey) : null;
 
-const products: Product[] = [
+const fallbackProducts: Product[] = [
   {
-    id: 1,
+    id: "11111111-1111-4111-8111-111111111111",
     name: "Reserve Cabernet",
     category: "wine",
     price: 42,
@@ -48,7 +63,7 @@ const products: Product[] = [
     image: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=900&q=80",
   },
   {
-    id: 2,
+    id: "22222222-2222-4222-8222-222222222222",
     name: "Celebration Moscato",
     category: "wine",
     price: 28,
@@ -57,7 +72,7 @@ const products: Product[] = [
     image: "https://images.unsplash.com/photo-1568213816046-0ee1c42bd559?auto=format&fit=crop&w=900&q=80",
   },
   {
-    id: 3,
+    id: "33333333-3333-4333-8333-333333333333",
     name: "Premium Kiddush Set",
     category: "gifts",
     price: 96,
@@ -66,7 +81,7 @@ const products: Product[] = [
     image: "https://images.unsplash.com/photo-1512909006721-3d6018887383?auto=format&fit=crop&w=900&q=80",
   },
   {
-    id: 4,
+    id: "44444444-4444-4444-8444-444444444444",
     name: "Wine & Chocolate Basket",
     category: "gifts",
     price: 74,
@@ -75,7 +90,7 @@ const products: Product[] = [
     image: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=900&q=80",
   },
   {
-    id: 5,
+    id: "55555555-5555-4555-8555-555555555555",
     name: "Sparkling Rose",
     category: "wine",
     price: 36,
@@ -84,7 +99,7 @@ const products: Product[] = [
     image: "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?auto=format&fit=crop&w=900&q=80",
   },
   {
-    id: 6,
+    id: "66666666-6666-4666-8666-666666666666",
     name: "Host Gift Bundle",
     category: "gifts",
     price: 58,
@@ -95,11 +110,48 @@ const products: Product[] = [
 ];
 
 function App() {
+  if (window.location.pathname === "/admin") {
+    return <AdminPage />;
+  }
+
+  return <Storefront />;
+}
+
+function Storefront() {
   const [isAgeConfirmed, setIsAgeConfirmed] = useState(false);
   const [category, setCategory] = useState<Category>("all");
   const [query, setQuery] = useState("");
+  const [products, setProducts] = useState<Product[]>(fallbackProducts);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  useEffect(() => {
+    void loadProducts();
+  }, []);
+
+  async function loadProducts() {
+    if (!supabase) return;
+
+    const { data, error } = await supabase
+      .from("abisel_products")
+      .select("id,name,category,price,detail,badge,image_url")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true });
+
+    if (!error && data?.length) {
+      setProducts(
+        data.map((product) => ({
+          id: product.id,
+          name: product.name,
+          category: product.category,
+          price: Number(product.price),
+          detail: product.detail,
+          badge: product.badge,
+          image: product.image_url,
+        })),
+      );
+    }
+  }
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -110,7 +162,7 @@ function App() {
 
       return matchesCategory && matchesQuery;
     });
-  }, [category, query]);
+  }, [category, products, query]);
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
   const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
@@ -130,7 +182,7 @@ function App() {
     setIsCartOpen(true);
   }
 
-  function updateQuantity(productId: number, quantity: number) {
+  function updateQuantity(productId: string, quantity: number) {
     if (quantity <= 0) {
       setCart((currentCart) => currentCart.filter((item) => item.id !== productId));
       return;
@@ -160,7 +212,7 @@ function App() {
         <nav className="topnav">
           <a href="#wines">Wines</a>
           <a href="#gifts">Gifts</a>
-          <a href="#delivery">Delivery</a>
+          <a href="/admin">Admin</a>
         </nav>
         <button className="cart-button" type="button" onClick={() => setIsCartOpen(true)}>
           <ShoppingCart size={19} />
@@ -172,9 +224,7 @@ function App() {
         <div className="hero-content">
           <p className="eyebrow">Wines, gifts, and ready-to-send bundles</p>
           <h1>Thoughtful bottles and gift sets for every table.</h1>
-          <p>
-            Browse curated wines, host gifts, and celebration bundles with simple local order requests.
-          </p>
+          <p>Browse curated wines, host gifts, and celebration bundles with simple local order requests.</p>
           <div className="hero-actions">
             <a className="primary-action" href="#shop">
               <ShoppingBag size={18} />
@@ -254,7 +304,7 @@ function App() {
         <Sparkles size={22} />
         <div>
           <h2>Need a custom gift?</h2>
-          <p>Use the cart as an order request. Real checkout/payment can be connected next with Stripe.</p>
+          <p>Use the cart as an order request. Payment can be connected next with Stripe.</p>
         </div>
       </section>
 
@@ -301,7 +351,7 @@ function CartPanel({
   cartTotal: number;
   onClose: () => void;
   onOrderSubmitted: () => void;
-  onUpdateQuantity: (productId: number, quantity: number) => void;
+  onUpdateQuantity: (productId: string, quantity: number) => void;
 }) {
   const [customerName, setCustomerName] = useState("");
   const [email, setEmail] = useState("");
@@ -335,27 +385,25 @@ function CartPanel({
     setStatusMessage("");
 
     const orderId = crypto.randomUUID();
-    const { error } = await supabase
-      .from("abisel_order_requests")
-      .insert({
-        id: orderId,
-        customer_name: customerName,
-        email,
-        phone,
-        fulfillment_method: fulfillmentMethod,
-        address: fulfillmentMethod === "delivery" ? address : "",
-        notes,
-        age_confirmed: isAgeConfirmed,
-        items: cart.map((item) => ({
-          id: item.id,
-          name: item.name,
-          category: item.category,
-          price: item.price,
-          quantity: item.quantity,
-          lineTotal: item.price * item.quantity,
-        })),
-        total_amount: cartTotal,
-      });
+    const { error } = await supabase.from("abisel_order_requests").insert({
+      id: orderId,
+      customer_name: customerName,
+      email,
+      phone,
+      fulfillment_method: fulfillmentMethod,
+      address: fulfillmentMethod === "delivery" ? address : "",
+      notes,
+      age_confirmed: isAgeConfirmed,
+      items: cart.map((item) => ({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        quantity: item.quantity,
+        lineTotal: item.price * item.quantity,
+      })),
+      total_amount: cartTotal,
+    });
 
     setIsSubmitting(false);
 
@@ -424,10 +472,7 @@ function CartPanel({
           </label>
           <label>
             Pickup or delivery
-            <select
-              value={fulfillmentMethod}
-              onChange={(event) => setFulfillmentMethod(event.target.value as FulfillmentMethod)}
-            >
+            <select value={fulfillmentMethod} onChange={(event) => setFulfillmentMethod(event.target.value as FulfillmentMethod)}>
               <option value="pickup">Pickup</option>
               <option value="delivery">Delivery</option>
             </select>
@@ -443,12 +488,7 @@ function CartPanel({
             <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
           </label>
           <label className="checkbox-row">
-            <input
-              checked={isAgeConfirmed}
-              onChange={(event) => setIsAgeConfirmed(event.target.checked)}
-              type="checkbox"
-              required
-            />
+            <input checked={isAgeConfirmed} onChange={(event) => setIsAgeConfirmed(event.target.checked)} type="checkbox" required />
             I confirm I am 21 or older.
           </label>
         </div>
@@ -466,6 +506,292 @@ function CartPanel({
         </div>
       </form>
     </aside>
+  );
+}
+
+function AdminPage() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession));
+
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  async function login(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+
+    if (!supabase) {
+      setMessage("Supabase is not configured.");
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setMessage(error.message);
+    }
+  }
+
+  if (!session) {
+    return (
+      <main className="admin-login">
+        <form className="admin-login-panel" onSubmit={login}>
+          <a className="brand" href="/">
+            <span className="brand-mark">A</span>
+            <span>Abisel Admin</span>
+          </a>
+          <h1>Admin login</h1>
+          <label>
+            Email
+            <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required />
+          </label>
+          <label>
+            Password
+            <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required />
+          </label>
+          {message && <div className="status-message">{message}</div>}
+          <button className="primary-action full-width" type="submit">
+            Log in
+          </button>
+        </form>
+      </main>
+    );
+  }
+
+  return <AdminDashboard />;
+}
+
+function AdminDashboard() {
+  const [orders, setOrders] = useState<OrderRequest[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [message, setMessage] = useState("");
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    category: "wine" as ProductCategory,
+    price: "",
+    detail: "",
+    badge: "",
+    image: "",
+  });
+
+  useEffect(() => {
+    void loadAdminData();
+  }, []);
+
+  async function loadAdminData() {
+    if (!supabase) return;
+
+    const [ordersResult, productsResult] = await Promise.all([
+      supabase.from("abisel_order_requests").select("*").order("created_at", { ascending: false }),
+      supabase.from("abisel_products").select("id,name,category,price,detail,badge,image_url").order("created_at", { ascending: true }),
+    ]);
+
+    if (ordersResult.error) {
+      setMessage(ordersResult.error.message);
+    } else {
+      setOrders((ordersResult.data ?? []) as OrderRequest[]);
+    }
+
+    if (productsResult.error) {
+      setMessage(productsResult.error.message);
+    } else {
+      setProducts(
+        (productsResult.data ?? []).map((product) => ({
+          id: product.id,
+          name: product.name,
+          category: product.category,
+          price: Number(product.price),
+          detail: product.detail,
+          badge: product.badge,
+          image: product.image_url,
+        })),
+      );
+    }
+  }
+
+  async function updateOrderStatus(orderId: string, status: string) {
+    if (!supabase) return;
+
+    const { error } = await supabase.from("abisel_order_requests").update({ status }).eq("id", orderId);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setOrders((currentOrders) => currentOrders.map((order) => (order.id === orderId ? { ...order, status } : order)));
+  }
+
+  async function addProduct(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+
+    if (!supabase) return;
+
+    const { error } = await supabase.from("abisel_products").insert({
+      name: newProduct.name,
+      category: newProduct.category,
+      price: Number(newProduct.price),
+      detail: newProduct.detail,
+      badge: newProduct.badge,
+      image_url: newProduct.image,
+      is_active: true,
+    });
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setNewProduct({ name: "", category: "wine", price: "", detail: "", badge: "", image: "" });
+    await loadAdminData();
+  }
+
+  async function deleteProduct(productId: string) {
+    if (!supabase || !window.confirm("Delete this item from the storefront?")) return;
+
+    const { error } = await supabase.from("abisel_products").delete().eq("id", productId);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setProducts((currentProducts) => currentProducts.filter((product) => product.id !== productId));
+  }
+
+  return (
+    <main className="admin-shell">
+      <header className="admin-topbar">
+        <a className="brand" href="/">
+          <span className="brand-mark">A</span>
+          <span>Abisel Admin</span>
+        </a>
+        <button className="secondary-admin-action" type="button" onClick={() => void supabase?.auth.signOut()}>
+          <LogOut size={18} />
+          Log out
+        </button>
+      </header>
+
+      {message && <div className="admin-message">{message}</div>}
+
+      <section className="admin-grid">
+        <div className="admin-section">
+          <div className="admin-section-header">
+            <p className="eyebrow">Orders</p>
+            <h1>Order requests</h1>
+          </div>
+          <div className="admin-list">
+            {orders.map((order) => (
+              <article className="admin-card" key={order.id}>
+                <div className="admin-card-head">
+                  <div>
+                    <h2>{order.customer_name}</h2>
+                    <p>{new Date(order.created_at).toLocaleString()}</p>
+                  </div>
+                  <select value={order.status} onChange={(event) => void updateOrderStatus(order.id, event.target.value)}>
+                    <option value="new">New</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="ready">Ready</option>
+                    <option value="done">Done</option>
+                    <option value="canceled">Canceled</option>
+                  </select>
+                </div>
+                <p>{order.phone} · {order.email}</p>
+                <p>{order.fulfillment_method === "delivery" ? `Delivery: ${order.address}` : "Pickup"}</p>
+                <ul>
+                  {order.items.map((item, index) => (
+                    <li key={`${order.id}-${index}`}>
+                      {item.quantity} x {item.name} (${item.lineTotal})
+                    </li>
+                  ))}
+                </ul>
+                <strong>Total: ${Number(order.total_amount)}</strong>
+                {order.notes && <p>Notes: {order.notes}</p>}
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="admin-section">
+          <div className="admin-section-header">
+            <p className="eyebrow">Products</p>
+            <h1>Store items</h1>
+          </div>
+          <form className="product-form" onSubmit={addProduct}>
+            <label>
+              Name
+              <input value={newProduct.name} onChange={(event) => setNewProduct({ ...newProduct, name: event.target.value })} required />
+            </label>
+            <label>
+              Category
+              <select
+                value={newProduct.category}
+                onChange={(event) => setNewProduct({ ...newProduct, category: event.target.value as ProductCategory })}
+              >
+                <option value="wine">Wine</option>
+                <option value="gifts">Gift</option>
+              </select>
+            </label>
+            <label>
+              Price
+              <input
+                value={newProduct.price}
+                onChange={(event) => setNewProduct({ ...newProduct, price: event.target.value })}
+                min="0"
+                step="0.01"
+                type="number"
+                required
+              />
+            </label>
+            <label>
+              Badge
+              <input value={newProduct.badge} onChange={(event) => setNewProduct({ ...newProduct, badge: event.target.value })} required />
+            </label>
+            <label>
+              Image URL
+              <input value={newProduct.image} onChange={(event) => setNewProduct({ ...newProduct, image: event.target.value })} required />
+            </label>
+            <label>
+              Detail
+              <textarea
+                value={newProduct.detail}
+                onChange={(event) => setNewProduct({ ...newProduct, detail: event.target.value })}
+                rows={3}
+                required
+              />
+            </label>
+            <button className="primary-action full-width" type="submit">
+              Add item
+            </button>
+          </form>
+
+          <div className="admin-list product-admin-list">
+            {products.map((product) => (
+              <article className="admin-card product-admin-card" key={product.id}>
+                <img src={product.image} alt="" />
+                <div>
+                  <h2>{product.name}</h2>
+                  <p>{product.category} · ${product.price}</p>
+                </div>
+                <button className="danger-button" type="button" onClick={() => void deleteProduct(product.id)}>
+                  <Trash2 size={17} />
+                  Delete
+                </button>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
 
