@@ -206,8 +206,8 @@ function Storefront() {
     <main className="shop-shell">
       <header className="topbar">
         <a className="brand" href="#top">
-          <span className="brand-mark">A</span>
-          <span>Abisel Wine & Gifts</span>
+          <span className="brand-mark">G</span>
+          <span>Grape Wine and Gifts</span>
         </a>
         <nav className="topnav">
           <a href="#wines">Wines</a>
@@ -326,8 +326,8 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
     <main className="age-gate">
       <section className="age-panel">
         <div className="brand age-brand">
-          <span className="brand-mark">A</span>
-          <span>Abisel Wine & Gifts</span>
+          <span className="brand-mark">G</span>
+          <span>Grape Wine and Gifts</span>
         </div>
         <h1>Are you 21 or older?</h1>
         <p>Wine products are intended only for adults of legal drinking age.</p>
@@ -545,8 +545,8 @@ function AdminPage() {
       <main className="admin-login">
         <form className="admin-login-panel" onSubmit={login}>
           <a className="brand" href="/">
-            <span className="brand-mark">A</span>
-            <span>Abisel Admin</span>
+            <span className="brand-mark">G</span>
+            <span>Grape Admin</span>
           </a>
           <h1>Admin login</h1>
           <label>
@@ -672,8 +672,8 @@ function AdminDashboard() {
     <main className="admin-shell">
       <header className="admin-topbar">
         <a className="brand" href="/">
-          <span className="brand-mark">A</span>
-          <span>Abisel Admin</span>
+          <span className="brand-mark">G</span>
+          <span>Grape Admin</span>
         </a>
         <button className="secondary-admin-action" type="button" onClick={() => void supabase?.auth.signOut()}>
           <LogOut size={18} />
