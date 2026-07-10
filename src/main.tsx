@@ -334,9 +334,11 @@ function CartPanel({
     setIsSubmitting(true);
     setStatusMessage("");
 
-    const { data, error } = await supabase
+    const orderId = crypto.randomUUID();
+    const { error } = await supabase
       .from("abisel_order_requests")
       .insert({
+        id: orderId,
         customer_name: customerName,
         email,
         phone,
@@ -353,9 +355,7 @@ function CartPanel({
           lineTotal: item.price * item.quantity,
         })),
         total_amount: cartTotal,
-      })
-      .select("id")
-      .single();
+      });
 
     setIsSubmitting(false);
 
@@ -364,7 +364,7 @@ function CartPanel({
       return;
     }
 
-    setStatusMessage(`Order request sent. Reference: ${String(data.id).slice(0, 8)}`);
+    setStatusMessage(`Order request sent. Reference: ${orderId.slice(0, 8)}`);
     window.setTimeout(onOrderSubmitted, 1400);
   }
 

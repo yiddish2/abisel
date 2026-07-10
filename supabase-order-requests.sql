@@ -18,6 +18,8 @@ create table if not exists public.abisel_order_requests (
 
 alter table public.abisel_order_requests enable row level security;
 
+grant insert on public.abisel_order_requests to anon, authenticated;
+
 do $$
 begin
   if not exists (
