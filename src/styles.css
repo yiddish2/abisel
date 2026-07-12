@@ -221,6 +221,199 @@ h1 {
   text-align: center;
 }
 
+.packaging-section {
+  align-items: center;
+  display: grid;
+  gap: 36px;
+  grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr);
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: 76px 32px 20px;
+}
+
+.packaging-copy h2 {
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 1.02;
+  margin: 0;
+  max-width: 620px;
+}
+
+.packaging-copy p {
+  color: #786a62;
+  font-size: 18px;
+  line-height: 1.55;
+  margin: 16px 0 24px;
+  max-width: 560px;
+}
+
+.packaging-display {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(243, 237, 231, 0.7)),
+    radial-gradient(circle at 76% 24%, rgba(217, 164, 65, 0.26), transparent 34%);
+  border: 1px solid #e8ded6;
+  border-radius: 8px;
+  box-shadow: 0 28px 80px rgba(36, 28, 24, 0.1);
+  min-height: 420px;
+  overflow: hidden;
+  position: relative;
+}
+
+.packaging-display::after {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
+  bottom: 0;
+  content: "";
+  height: 82px;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+.box-tall,
+.box-open,
+.wine-bottle,
+.box-bag {
+  box-shadow: 0 18px 32px rgba(36, 28, 24, 0.18);
+  position: absolute;
+}
+
+.box-tall {
+  background: linear-gradient(135deg, #13243b, #07111f);
+  border-radius: 6px;
+  height: 250px;
+  left: 52px;
+  top: 92px;
+  width: 158px;
+}
+
+.box-tall::before {
+  background: rgba(255, 255, 255, 0.18);
+  content: "";
+  height: 100%;
+  left: 18px;
+  position: absolute;
+  top: 0;
+  transform: skewY(-22deg);
+  width: 34px;
+}
+
+.box-open {
+  background: #161616;
+  border-radius: 7px;
+  bottom: 54px;
+  height: 104px;
+  left: 154px;
+  width: 196px;
+  z-index: 4;
+}
+
+.box-open::before {
+  background: #2b2b2b;
+  border-radius: 7px 7px 0 0;
+  content: "";
+  height: 44px;
+  left: 0;
+  position: absolute;
+  top: -40px;
+  transform: skewX(-18deg);
+  transform-origin: bottom left;
+  width: 196px;
+}
+
+.wine-bottle {
+  background: linear-gradient(90deg, #3a3b72, #19193b 72%);
+  border-radius: 18px 18px 8px 8px;
+  height: 264px;
+  right: 118px;
+  top: 70px;
+  transform: rotate(14deg);
+  width: 74px;
+  z-index: 3;
+}
+
+.wine-bottle::before {
+  background: #3c3d77;
+  border-radius: 16px 16px 3px 3px;
+  content: "";
+  height: 80px;
+  left: 14px;
+  position: absolute;
+  top: -70px;
+  width: 46px;
+}
+
+.wine-bottle::after {
+  background: rgba(255, 255, 255, 0.13);
+  content: "";
+  height: 170px;
+  left: 13px;
+  position: absolute;
+  top: 54px;
+  transform: skewY(-18deg);
+  width: 25px;
+}
+
+.box-bag {
+  background: linear-gradient(135deg, #9c7650, #694b30);
+  border-radius: 5px;
+  bottom: 64px;
+  height: 160px;
+  right: 52px;
+  width: 138px;
+  z-index: 2;
+}
+
+.box-bag::before,
+.box-bag::after {
+  border: 3px solid #d1b08c;
+  border-bottom: 0;
+  border-radius: 999px 999px 0 0;
+  content: "";
+  height: 52px;
+  position: absolute;
+  top: -24px;
+  width: 34px;
+}
+
+.box-bag::before {
+  left: 28px;
+}
+
+.box-bag::after {
+  right: 28px;
+}
+
+.box-tall span,
+.box-open span,
+.wine-bottle span,
+.box-bag span {
+  color: rgba(255, 235, 181, 0.9);
+  display: block;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0;
+  position: absolute;
+  text-align: center;
+  text-transform: uppercase;
+  width: 100%;
+}
+
+.box-tall span {
+  bottom: 86px;
+}
+
+.box-open span {
+  top: 36px;
+}
+
+.wine-bottle span {
+  bottom: 68px;
+  transform: rotate(-90deg);
+}
+
+.box-bag span {
+  top: 72px;
+}
+
 .shop-section,
 .order-note {
   margin: 0 auto;
@@ -811,6 +1004,32 @@ h1 {
 
   .trust-strip {
     display: grid;
+  }
+
+  .packaging-section {
+    grid-template-columns: 1fr;
+    padding: 42px 20px 0;
+  }
+
+  .packaging-display {
+    min-height: 360px;
+  }
+
+  .box-tall {
+    left: 24px;
+    top: 88px;
+  }
+
+  .box-open {
+    left: 96px;
+  }
+
+  .wine-bottle {
+    right: 96px;
+  }
+
+  .box-bag {
+    right: 24px;
   }
 
   .section-header {

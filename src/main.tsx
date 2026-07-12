@@ -107,6 +107,33 @@ const fallbackProducts: Product[] = [
     badge: "Quick gift",
     image: "https://images.unsplash.com/photo-1513885535751-8b9238bd345a?auto=format&fit=crop&w=900&q=80",
   },
+  {
+    id: "77777777-7777-4777-8777-777777777777",
+    name: "Signature Wine Presentation Box",
+    category: "gifts",
+    price: 68,
+    detail: "A premium rigid wine box with ribbon finish, bottle space, and a personal note card.",
+    badge: "Presentation box",
+    image: "https://images.unsplash.com/photo-1606761568499-6d2451b23c66?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    id: "88888888-8888-4888-8888-888888888888",
+    name: "Double Bottle Gift Case",
+    category: "gifts",
+    price: 118,
+    detail: "Two curated bottles packed in a keepsake-style gift case with soft fill and ribbon.",
+    badge: "Two bottles",
+    image: "https://images.unsplash.com/photo-1560148218-1a83060f7b32?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    id: "99999999-9999-4999-8999-999999999999",
+    name: "Corporate Wine Box Set",
+    category: "gifts",
+    price: 156,
+    detail: "A branded-style wine gift set for clients, hosts, donors, and special thank-yous.",
+    badge: "Premium packaging",
+    image: "https://images.unsplash.com/photo-1512909006721-3d6018887383?auto=format&fit=crop&w=900&q=80",
+  },
 ];
 
 function App() {
@@ -250,6 +277,35 @@ function Storefront() {
         <div>
           <Truck size={22} />
           <span>Local delivery and pickup requests</span>
+        </div>
+      </section>
+
+      <section className="packaging-section">
+        <div className="packaging-copy">
+          <p className="eyebrow">Wine plus presentation packaging</p>
+          <h2>Make the bottle feel like a finished gift.</h2>
+          <p>
+            Pair curated wine with rigid boxes, ribbon closures, kraft bags, sleeve boxes, and custom note cards for a
+            polished handoff.
+          </p>
+          <a className="primary-action" href="#shop">
+            <Gift size={18} />
+            Shop wine boxes
+          </a>
+        </div>
+        <div className="packaging-display" aria-label="Wine bottle and gift box display">
+          <div className="box-tall">
+            <span>Reserve</span>
+          </div>
+          <div className="box-open">
+            <span>Gift Box</span>
+          </div>
+          <div className="wine-bottle">
+            <span>Grape</span>
+          </div>
+          <div className="box-bag">
+            <span>Thank You</span>
+          </div>
         </div>
       </section>
 
